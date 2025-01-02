@@ -80,3 +80,13 @@ rst: ## make rst file
 	pandoc -f markdown -t rst -o ./AUTHORS.rst AUTHORS.md
 	pandoc -f markdown -t rst -o ./HISTORY.rst HISTORY.md
 	pandoc -f markdown -t rst -o ./README.rst README.md
+
+test-windows: ## run Windows Event specific tests with coverage
+	python -m pip install --upgrade pip
+	python -m pip install -e ".[test]"
+	python -m pytest tests/test_windows_event.py --cov=rlog_generator --cov-report=html
+	$(BROWSER) htmlcov/index.html
+
+test-windows-xml: ## validate Windows Event XML output against schema
+	python -m pip install -e ".[test]"
+	python -m pytest tests/test_windows_event.py::TestWindowsEventValidation::test_xml_output -v

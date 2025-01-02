@@ -1,0 +1,21 @@
+name: windows_security_login
+enabled: true
+generator_type: windows_event
+path: /tmp/windows_events.log
+eps: 1
+time_period: 60
+
+event_descriptor:
+  Id: 4624
+  Version: 0
+  Channel: 1  # Security
+  Level: 0    # Information
+  Opcode: 0   # Info
+  Task: 12544
+  Keyword: 0x8020000000000000
+
+template:
+  message: "An account was successfully logged on.\nSubject:\n\tSecurity ID:\t\t%1\n\tAccount Name:\t\t%2"
+  values:
+    - func_sid
+    - func_username 

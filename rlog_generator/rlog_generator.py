@@ -24,6 +24,7 @@ import logging
 import os
 import random
 import time
+import xml.etree.ElementTree as ET
 
 from concurrent import futures
 
@@ -180,3 +181,30 @@ def core(path_patterns, max_concur_req, progress_bar=False):
     with futures.ThreadPoolExecutor(max_workers=concur_req) as executor:
         res = executor.map(log_generator, patterns.values())
         return sum(res)
+
+
+def generate_windows_event(template, fields):
+    """Generate Windows Event XML"""
+    root = ET.Element("Event")
+    root.set("xmlns", "http://schemas.microsoft.com/win/2004/08/events/event")
+    
+    # Build XML structure based on template
+    system = ET.SubElement(root, "System")
+    for key, value in template["System"].items():
+        if isinstance(value, dict):
+            elem = ET.SubElement(system, key)
+            for attr, val in value.items():
+                elem.set(attr, str(get_random_value(val)))
+        else:
+            elem = ET.SubElement(system, key)
+            elem.text = str(get_random_value(value))
+            
+    # Add EventData
+    if "EventData" in template:
+        event_data = ET.SubElement(root, "EventData")
+        for data in template["EventData"]["Data"]:
+            data_elem = ET.SubElement(event_data, "Data")
+            data_elem.set("Name", data["Name"])
+            data_elem.text = str(get_random_value(data["Value"]))
+            
+    return ET.tostring(root, encoding="unicode")

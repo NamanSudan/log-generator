@@ -1,0 +1,121 @@
+name: windows_security_logon
+enabled: true
+generator_type: windows_event
+path: /tmp/windows_security.log
+eps: 1
+time_period: 60
+
+Event:
+  # Required root element attributes
+  xmlns: "http://schemas.microsoft.com/win/2004/08/events/event"
+  
+  System:
+    Provider:
+      # Name must be anyURI type
+      Name: "Microsoft-Windows-Security-Auditing"
+      # Guid must match GUIDType pattern exactly
+      Guid: "{54849625-5478-4994-A5BA-3E3B0328C30D}"
+    
+    # EventID must be unsignedShort with optional Qualifiers
+    EventID: 
+      _text: 4624
+      Qualifiers: 0
+    
+    # All numeric types must match XML schema types
+    Version: 0  # xs:byte
+    Level: 0    # xs:byte
+    Task: 12544 # xs:unsignedShort
+    Opcode: 0   # xs:byte
+    Keywords: "0x8020000000000000"  # evt:HexInt64Type pattern
+    
+    TimeCreated:
+      # Must be xs:dateTime format
+      SystemTime: func_datetime_iso8601
+    
+    EventRecordID: 
+      _text: func_increment  # xs:unsignedLong
+    
+    Correlation:
+      # Both must match GUIDType pattern
+      ActivityID: func_guid
+      RelatedActivityID: func_guid
+    
+    Execution:
+      # Required attributes
+      ProcessID: func_randint 1000 9999      # xs:unsignedInt
+      ThreadID: func_randint 1000 9999       # xs:unsignedInt
+      # Optional attributes
+      ProcessorID: func_randint 0 255        # xs:byte
+      SessionID: func_randint 1 999          # xs:unsignedInt
+      KernelTime: func_randint 0 999999      # xs:unsignedInt
+      UserTime: func_randint 0 999999        # xs:unsignedInt
+      ProcessorTime: func_randint 0 999999   # xs:unsignedInt
+    
+    # Channel must be anyURI type
+    Channel: "Security"
+    
+    # Computer is required
+    Computer: func_hostname
+    
+    # Optional Container
+    Container: "Application"
+    
+    # Optional Security element
+    Security:
+      UserID: func_sid
+
+  # Choice of one: EventData, UserData, DebugData, BinaryEventData, or ProcessingErrorData
+  EventData:
+    # Optional Name attribute
+    Name: "Login Success Data"
+    Data:
+      # Each Data element is DataType
+      - Name: "SubjectUserSid"
+        Type: "win:SID"
+        _text: func_sid
+      
+      - Name: "SubjectUserName"
+        Type: "win:UnicodeString"
+        _text: func_username
+      
+      - Name: "SubjectDomainName"
+        Type: "win:UnicodeString"
+        _text: "DOMAIN"
+      
+      - Name: "SubjectLogonId"
+        Type: "win:HexInt64"
+        _text: func_hex_id
+      
+      - Name: "LogonType"
+        Type: "win:UInt32"
+        _text: func_logon_type
+      
+      - Name: "RestrictedAdminMode"
+        Type: "win:Boolean"
+        _text: "No"
+      
+      - Name: "VirtualAccount"
+        Type: "win:Boolean"
+        _text: "No"
+      
+      - Name: "ElevatedToken"
+        Type: "win:Boolean"
+        _text: "Yes"
+    
+    # Optional Binary element
+    Binary: "0A0B0C0D"  # xs:hexBinary
+
+  # Optional RenderingInfo
+  RenderingInfo:
+    # Required Culture attribute (xs:language)
+    Culture: "en-US"
+    Message: "An account was successfully logged on."
+    Level: "Information"
+    Opcode: "Info"
+    Task: "Logon"
+    Channel: "Security"
+    Publisher: "Microsoft-Windows-Security-Auditing"
+    Keywords:
+      Keyword:
+        - "Audit Success"
+        - "Logon/Logoff"

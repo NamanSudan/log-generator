@@ -17,8 +17,18 @@ with io.open(os.path.join(current, 'README.rst'), encoding="utf-8") as f:
 with io.open(os.path.join(current, 'HISTORY.rst'), encoding="utf-8") as f:
     history = f.read()
 
-with open(os.path.join(current, 'requirements.txt')) as f:
-    requirements = f.read().splitlines()
+# Define requirements separately
+install_requires = [
+    'Click>=7.0',
+    'PyYAML>=5.4',
+    # Add other requirements from requirements.txt
+]
+
+test_requires = [
+    'coverage>=5.3',
+    'pytest>=6.0',
+    'pytest-cov>=2.10'
+]
 
 __version__ = runpy.run_path(
     os.path.join(current, "rlog_generator", "version.py"))["__version__"]
@@ -44,12 +54,16 @@ setup(
         ],
     },
     platforms=["Linux"],
-    install_requires=requirements,
+    install_requires=install_requires,
     long_description=long_description + '\n\n' + history,
     include_package_data=True,
     keywords=['log', 'generator', 'random'],
     packages=find_packages(include=['rlog_generator']),
-    setup_requires=requirements,
+    python_requires='>=3.6',
+    extras_require={
+        'test': test_requires,
+    },
+    tests_require=test_requires,
     url='https://github.com/WuerthPhoenix/log-generator',
     version=__version__,
     zip_safe=False,

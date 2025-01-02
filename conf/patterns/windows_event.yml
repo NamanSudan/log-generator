@@ -1,0 +1,37 @@
+name: windows_event
+enabled: true
+path: /tmp/windows_events.xml
+generator_type: windows_event
+eps: 1
+time_period: 60
+
+# Windows Event specific fields
+template:
+  System:
+    Provider:
+      Name: "Microsoft-Windows-Security-Auditing"
+      Guid: "{54849625-5478-4994-A5BA-3E3B0328C30D}"
+    EventID: 4624  # Login event
+    Version: 0
+    Level: 0  # Information
+    Task: 12544
+    Opcode: 0
+    Keywords: "0x8020000000000000"
+    TimeCreated:
+      SystemTime: func_datetime
+    EventRecordID: func_increment
+    Correlation: 
+      ActivityID: func_guid
+    Execution:
+      ProcessID: func_randint 1000 9999
+      ThreadID: func_randint 1000 9999
+    Channel: "Security"
+    Computer: func_hostname
+
+  EventData:
+    Data:
+      - Name: "SubjectUserSid"
+        Value: func_sid
+      - Name: "SubjectUserName" 
+        Value: func_username
+      # Add more Data fields as needed 

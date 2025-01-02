@@ -25,8 +25,16 @@ import random
 import socket
 import struct
 import sys
+import uuid
+from typing import List, Dict, Any
 
 import yaml
+from .windows_event import EventDescriptor
+from .validators import (
+    validate_windows_event_config, 
+    validate_message_format,
+    WindowsEventValidationError
+)
 
 
 log = logging.getLogger(__name__)
@@ -70,22 +78,16 @@ def randip():
 
 
 def get_function(function_str, module=sys.modules[__name__]):
-    """Return the function from its string name as func_name
-    Example: with the name 'func_randint'
-    you will get the function name 'randint'
-
-    Arguments:
-        function_str {str} -- name of function preceded by 'func_'
-
-    Keyword Arguments:
-        module {module obj} -- module object with the function
-                                (default: {sys.modules[__name__]})
-
-    Returns:
-        obj function -- function of module
-    """
+    """Return the function from its string name as func_name"""
+    # Check if it's a function call (starts with func_)
+    if not function_str.startswith('func_'):
+        return lambda: function_str  # Return the value as-is if not a function
+    
     function_str = function_str.split("_")[1]
-    return getattr(module, function_str)
+    try:
+        return getattr(module, f"func_{function_str}")
+    except AttributeError:
+        raise ValueError(f"Unknown function: func_{function_str}")
 
 
 def exec_function_str(function_str):
@@ -108,24 +110,16 @@ def exec_function_str(function_str):
         return func(*tokens[1:])
 
 
-def get_random_value(field_value):
-    """Return the random value of field value in pattern configuration
-
-    Arguments:
-        field_value {str/list} -- value of field in pattern configuration
-
-    Raises:
-        ValueError: raised when field value is not valid
-
-    Returns:
-        any -- random value
-    """
-    if isinstance(field_value, str):
+def get_random_value(field_value: str) -> str:
+    """Get random value based on field configuration"""
+    if not isinstance(field_value, str):
+        return str(field_value)
+    
+    try:
         return exec_function_str(field_value)
-    elif isinstance(field_value, list):
-        return random.choice(field_value)
-    else:
-        raise ValueError('field value can be a string or a list')
+    except (ValueError, IndexError) as e:
+        log.warning(f"Failed to execute function for {field_value}: {str(e)}")
+        return field_value  # Return original value if not a function
 
 
 def get_template_log(template, fields):
@@ -161,3 +155,107 @@ def custom_log(level="WARNING", name=None):  # pragma: no cover
     ch.setFormatter(formatter)
     log.addHandler(ch)
     return log
+
+
+def func_guid():
+    """Generate random GUID in Windows format"""
+    return "{" + str(uuid.uuid4()) + "}"
+
+
+def func_sid():
+    """Generate random Windows SID"""
+    return f"S-1-5-21-{random.randint(1000000000,9999999999)}"
+
+
+def func_hostname():
+    """Generate random hostname"""
+    return f"WIN-{random.randint(1000,9999)}"
+
+
+def func_datetime():
+    """Generate datetime in Windows Event format"""
+    return datetime.datetime.now().isoformat()
+
+
+def validate_event_descriptor(event: EventDescriptor) -> bool:
+    """Validate Event Descriptor according to Windows specs"""
+    return (
+        0 <= event.Level <= 15 and
+        0 <= event.Opcode <= 240 and
+        event.Task >= 0
+    )
+
+
+def format_windows_message(message: str, values: List[str]) -> str:
+    """Format Windows Event message with parameter substitution"""
+    for i, value in enumerate(values, 1):
+        message = message.replace(f"%{i}", value)
+    return message
+
+
+def get_windows_event_log(config: Dict[str, Any]) -> str:
+    """Generate Windows Event log with validation"""
+    try:
+        # Validate entire configuration
+        validate_windows_event_config(config)
+        
+        # Build XML structure
+        xml = ['<?xml version="1.0" encoding="UTF-8"?>']
+        
+        # Add Event with namespace
+        xml.append('<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">')
+        
+        # Add System section
+        xml.append('  <System>')
+        system = config['Event']['System']
+        for key, value in system.items():
+            if isinstance(value, dict):
+                # Handle attributes
+                attrs = []
+                text = ""
+                for k, v in value.items():
+                    if k == '_text':
+                        text = get_random_value(v)
+                    else:
+                        attrs.append(f'{k}="{get_random_value(v)}"')
+                
+                if attrs:
+                    xml.append(f'    <{key} {" ".join(attrs)}>{text}</{key}>')
+                else:
+                    xml.append(f'    <{key}>{text}</{key}>')
+            else:
+                xml.append(f'    <{key}>{get_random_value(value)}</{key}>')
+        xml.append('  </System>')
+        
+        # Add EventData section if present
+        if 'EventData' in config['Event']:
+            xml.append('  <EventData>')
+            for data in config['Event']['EventData']['Data']:
+                attrs = []
+                text = ""
+                for k, v in data.items():
+                    if k == '_text':
+                        text = get_random_value(v)
+                    else:
+                        attrs.append(f'{k}="{v}"')
+                
+                if attrs:
+                    xml.append(f'    <Data {" ".join(attrs)}>{text}</Data>')
+                else:
+                    xml.append(f'    <Data>{text}</Data>')
+            xml.append('  </EventData>')
+        
+        xml.append('</Event>')
+        return '\n'.join(xml)
+        
+    except WindowsEventValidationError as e:
+        log.error(f"Windows Event validation error: {str(e)}")
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error generating Windows Event: {str(e)}")
+        raise
+
+
+def func_datetime_iso8601():
+    """Generate ISO8601 formatted datetime"""
+    return datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
